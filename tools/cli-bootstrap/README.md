@@ -6,22 +6,22 @@ CLI.BOOTSTRAP(1)
 python cli.bootstrap.py [-b __build_set__] [-nopatch] [-payload __tarball_path__]
 
 ### DESCRIPTION  
-cli.bootstrap.py is the .NET CLI bootstrapping script that intends to help developers move to new platforms and "bring up" the required pieces.
+cli.bootstrap.py is the .NET CLI bootstrapping script (written for Python 2.7) that intends to help developers move to new platforms and "bring up" the required pieces.
 
 There are default settings that intend to hit the 'most cases' scenario. If all is going to plan, you should never need to specify any additional parameters. However
 many situations arise where it becomes a necessity or a nice-to-have. Namely, when things go wrong, you want to be able to get in there and fix
-up the build, make changes, etc. This is 'development mode' or DevMode for short. In DevMode, NO git commands are executed. This is to prevent 
-the script from stomping out any changes you have made in the working directory. Additionally, when things do go wrong (inevitably they will), this tool places a shell/batch script
-within the working directory that contains the command line that failed. This is to enable the scenario where you want to 'drill into' a problem.
+up the build, make changes, etc. This is 'development mode' or DevMode for short. In DevMode, NO git commands are executed (ONE EXCEPTION: if the expected repo directories (coreclr, corefx, core-setup, libuv) do not exist, 
+we will clone them in). This is to prevent the script from stomping out any changes you have made in the working directory. Additionally, when things do go wrong (inevitably they will), this tool places a shell/batch 
+script within the working directory that contains the command line that failed. This is to enable the scenario where you want to 'drill into' a problem.
 
 ### EXAMPLES
-The first time you run this tool HAS to be like this:
+Intended use,
+
 ```
 ./cli.bootstrap.py
 ```
 This will spawn a directory next to the bootstrap script, named after its runtime identifier (the runtime identifier is currently picked from the /os/release and we concatenate the 
 VERSION and VERSION_ID values). So on an AMD64 Ubuntu 16.04 machine, the RID is ubuntu.16.04-x64-dotnet 
-
 
 Any additional runs can be controlled via these command lines, and consequently, any additional runs are going to be in DevMode.
 

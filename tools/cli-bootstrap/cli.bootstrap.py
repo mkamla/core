@@ -96,6 +96,7 @@ def RoverPrint(line):
 def UnexpectedRoverException(exc_info):
     RoverPrint(RoverMods.Red('CAUGHT AN UNEXPECTED EXCEPTION: \"' + RoverMods.White('%s'%(str(exc_info[1]))) + '\" of type: %s'%(str(exc_info[0]))))
     RoverPrint(RoverMods.White('%s'%(str(traceback.print_tb(exc_info[2])))))
+    os._exit(1) # bail out immediately to avoid possibly futzing up the state, or printing unhelpful messages. 
 
 
 # probably a pretty shaky interpretation of the semantic versioning 2.0.0 standard (http://semver.org/)
@@ -204,7 +205,6 @@ class RoverSettings:
 
     PayloadPath                         = str('')
     PatchTargetPath                     = _binDirectory
-    CloneSet                            = []
     BuildSet                            = []
     Patch                               = True
 
@@ -343,26 +343,22 @@ def CloneRepositories(cwd,
         if not RoverSettings._DevMode:
             RoverPrint(RoverMods.Blue('is initializing the .NET GitHub repositories.'))
 
-            if 'coreclr' in RoverSettings.CloneSet:
-                if not path.exists(path.join(cwd, 'coreclr')):
-                    RoverShellCall('git clone http://www.github.com/dotnet/coreclr', cwd=cwd)
-                    RoverShellCall('git checkout %s'%(coreclr_commit_hash), cwd=path.join(cwd, 'coreclr'))
+            if not path.exists(path.join(cwd, 'coreclr')):
+                RoverShellCall('git clone http://www.github.com/dotnet/coreclr', cwd=cwd)
+                RoverShellCall('git checkout %s'%(coreclr_commit_hash), cwd=path.join(cwd, 'coreclr'))
 
-            if 'corefx' in RoverSettings.CloneSet:
-                if not path.exists(path.join(cwd, 'corefx')):
-                    RoverShellCall('git clone http://www.github.com/dotnet/corefx', cwd=cwd)
-                    RoverShellCall('git checkout %s'%(corefx_commit_hash), cwd=path.join(cwd, 'corefx'))
+            if not path.exists(path.join(cwd, 'corefx')):
+                RoverShellCall('git clone http://www.github.com/dotnet/corefx', cwd=cwd)
+                RoverShellCall('git checkout %s'%(corefx_commit_hash), cwd=path.join(cwd, 'corefx'))
 
-            if 'core-setup' in RoverSettings.CloneSet:
-                if not path.exists(path.join(cwd, 'core-setup')):
-                    RoverShellCall('git clone http://www.github.com/dotnet/core-setup', cwd=cwd)
-                    RoverShellCall('git checkout %s'%(dotnet_commit_hash), cwd=path.join(cwd, 'core-setup'))   
+            if not path.exists(path.join(cwd, 'core-setup')):
+                RoverShellCall('git clone http://www.github.com/dotnet/core-setup', cwd=cwd)
+                RoverShellCall('git checkout %s'%(dotnet_commit_hash), cwd=path.join(cwd, 'core-setup'))   
 
-            if 'libuv' in RoverSettings.CloneSet:
-                if not path.exists(path.join(cwd, 'libuv')):
-                    RoverShellCall('git clone http://www.github.com/libuv/libuv', cwd=cwd)
-                    # we are fixed to using libuv 1.9.0 - this is the commit hash for that (https://github.com/libuv/libuv/commit/229b3a4cc150aebd6561e6bd43076eafa7a03756)
-                    RoverShellCall('git checkout %s'%('229b3a4cc150aebd6561e6bd43076eafa7a03756'), cwd=path.join(cwd, 'libuv'))   
+            if not path.exists(path.join(cwd, 'libuv')):
+                RoverShellCall('git clone http://www.github.com/libuv/libuv', cwd=cwd)
+                # we are fixed to using libuv 1.9.0 - this is the commit hash for that (https://github.com/libuv/libuv/commit/229b3a4cc150aebd6561e6bd43076eafa7a03756)
+                RoverShellCall('git checkout %s'%('229b3a4cc150aebd6561e6bd43076eafa7a03756'), cwd=path.join(cwd, 'libuv'))   
 
         else:
             RoverPrint(RoverMods.Yellow(('DEVMODE IS ON. Skipping all git calls : I.e. you must manually control git your self.')))
@@ -395,10 +391,7 @@ def BuildNativeComponents(  coreclr_git_directory,
                 RoverShellCall('./build.sh native x64 release', cwd=corefx_git_directory) 
 
         # Build corehost from core-setup
-        # TODO: declare proper runtime id
-        # TODO: hostver?
-        # TODO: fxrver?
-        # TODO: policyver?
+        # TODO: Pull versions from the runtimes.
         if 'core-setup' in RoverSettings.BuildSet:
             RoverShellCall('./build.sh --arch x64 --rid %s --hostver 0.0.0 --fxrver 0.0.0 --policyver 0.0.0 --commithash %s'%(RoverSettings._Rid, RoverSettings.DotNetCommitHash), cwd="%s/src/corehost"%(core_setup_git_directory))
 
@@ -467,8 +460,7 @@ if __name__ == "__main__":
     ##
 
     parser = argparse.ArgumentParser(description = 'Rover is the dotnet bootstrapping tool.')
-    parser.add_argument('-clone', metavar='c', nargs='*', default=['coreclr', 'corefx', 'core-setup', 'libuv'], help='Clones specified repositories in to the working directory. Select from the following repositories: {' 
-        + '%s, %s, %s, %s'%(RoverMods.Red('coreclr'), RoverMods.Blue('corefx'), RoverMods.Green('core-setup'), RoverMods.Yellow('libuv') +'}'))
+    
     parser.add_argument('-build', metavar='b', nargs='*', default = ['coreclr', 'corefx', 'core-setup', 'libuv'],help='\'Builds\' all native components if no arguments are specified. Otherwise, specify one or more (space separated) arguments from the following : {' 
         + '%s, %s, %s, %s'%(RoverMods.Red('coreclr'), RoverMods.Blue('corefx'), RoverMods.Green('core-setup'), RoverMods.Yellow('libuv') +'}'))
     parser.add_argument('-nopatch', action='store_true', default=False, help='prevents the copying of specific native binaries from the pre-built repositories in to the destination directory.')
@@ -479,11 +471,9 @@ if __name__ == "__main__":
     if args.payload:
         RoverPrint('using payload ' + RoverMods.White(str(args.payload)))
     
-    RoverPrint('Cloning Set: ' + RoverMods.White(str(args.clone)))
     RoverPrint('Building Set: ' + RoverMods.White(str(args.build)))
     RoverPrint('Is Patching? ' + RoverMods.White(str(not args.nopatch)))
     
-    RoverSettings.CloneSet = args.clone
     RoverSettings.BuildSet = args.build
 
     # I am guessing that users are more inclined to want patching to happen whenever it can, and so I ask
